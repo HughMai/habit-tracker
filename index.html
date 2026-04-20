@@ -199,6 +199,14 @@ th.col-habit, th.col-cat, th.col-goal { z-index: 4; }
 .inline-edit-select option { background: var(--bg-card2); }
 .goal-val  { font-size: 12px; font-weight: 700; color: var(--text-muted); text-align: center; display: block; cursor: pointer; }
 .goal-val:hover { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+.drag-handle {
+  cursor: grab; color: var(--text-dim); font-size: 14px;
+  padding: 0 3px 0 0; opacity: 0; transition: opacity .15s; flex-shrink: 0; user-select: none;
+}
+#habits-tbody tr:hover .drag-handle { opacity: 0.6; }
+.drag-handle:active { cursor: grabbing; }
+#habits-tbody tr.drag-over td { box-shadow: inset 0 2px 0 var(--accent2); }
+#habits-tbody tr.dragging { opacity: 0.3; }
 
 /* Day checkbox cells */
 td.col-day { padding: 0; text-align: center; vertical-align: middle; position: relative; }
@@ -477,7 +485,8 @@ td.col-streak, td.col-rate { padding: 4px 4px; font-weight: 700; vertical-align:
     <div id="table-header">
       <h2>DAILY HABITS</h2>
       <div id="table-controls">
-        <span style="font-size:10px;color:var(--text-dim)">Right-click a missed day to add a note</span>
+        <button class="btn btn-ghost" id="check-all-btn" style="padding:5px 10px;font-size:11px">✓ All Today</button>
+      <span style="font-size:10px;color:var(--text-dim)">Right-click a missed day to add a note</span>
       </div>
     </div>
     <div id="table-wrapper">
@@ -650,7 +659,7 @@ const state = {
   habits: [], completions: {}, missNotes: {}, weeklyReview: {},
   showRetired: false,
   donutChart: null, barChart: null,
-  _missTarget: null,
+  _missTarget: null, _dragId: null,
   profile:      { username: '', groupCode: '' },
   supabaseConf: { url: '', anonKey: '' },
   leaderboard:  [],
@@ -935,10 +944,42 @@ function renderTable() {
     if (habit.retired) tr.className = 'habit-row-retired';
     tr.style.setProperty('--row-color', color);
 
+    // Drag to reorder
+    tr.draggable = true;
+    tr.addEventListener('dragstart', e => {
+      state._dragId = habit.id;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    tr.addEventListener('dragend', () => {
+      tr.classList.remove('dragging');
+      document.querySelectorAll('#habits-tbody tr').forEach(r => r.classList.remove('drag-over'));
+    });
+    tr.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('#habits-tbody tr').forEach(r => r.classList.remove('drag-over'));
+      if (state._dragId !== habit.id) tr.classList.add('drag-over');
+    });
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      tr.classList.remove('drag-over');
+      if (!state._dragId || state._dragId === habit.id) return;
+      const dragIdx = state.habits.findIndex(h => h.id === state._dragId);
+      const dropIdx = state.habits.findIndex(h => h.id === habit.id);
+      if (dragIdx === -1 || dropIdx === -1) return;
+      const [moved] = state.habits.splice(dragIdx, 1);
+      state.habits.splice(dropIdx, 0, moved);
+      saveHabits();
+      state._dragId = null;
+      renderAll();
+    });
+
     // Habit name cell
     const tdH = document.createElement('td');
     tdH.className = 'col-habit';
     tdH.innerHTML = `<div class="habit-name-row">
+      <span class="drag-handle">⠿</span>
       <span class="habit-name" title="${habit.name}">${habit.name}</span>
       <span class="priority-badge priority-${habit.priority}">${habit.priority}</span>
       <span class="freq-badge">${habit.frequency}</span>
@@ -1357,6 +1398,18 @@ function bindEvents() {
     if (e.target === document.getElementById('setup-modal-overlay')) closeSetupModal();
   });
   document.getElementById('lb-refresh-btn').addEventListener('click', () => {
+    syncToLeaderboard().then(fetchLeaderboard);
+  });
+
+  document.getElementById('check-all-btn').addEventListener('click', () => {
+    const today = todayKey();
+    const habits = activeHabits().filter(h => !h.retired);
+    const allDone = habits.every(h => isCompleted(h.id, today));
+    for (const h of habits) {
+      const done = isCompleted(h.id, today);
+      if (allDone ? done : !done) toggleCompletion(h.id, today);
+    }
+    renderAll();
     syncToLeaderboard().then(fetchLeaderboard);
   });
 
