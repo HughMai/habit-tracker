@@ -728,13 +728,13 @@ function loadAll() {
   state.supabaseConf= loadData(SK.SUPABASE, { url: '', anonKey: '' });
   state.journal     = loadData(SK.JOURNAL,  {});
 }
-function saveProfile()   { saveData(SK.PROFILE,  state.profile); }
-function saveSupabase()  { saveData(SK.SUPABASE, state.supabaseConf); }
-function saveJournal() { saveData(SK.JOURNAL, state.journal); }
-function saveHabits()  { saveData(SK.HABITS, state.habits); }
-function saveComps()   { saveData(SK.COMPS,  state.completions); }
-function saveMissN()   { saveData(SK.NOTES,  state.missNotes); }
-function saveReview()  { saveData(SK.REVIEW, state.weeklyReview); }
+function saveProfile()   { saveData(SK.PROFILE,  state.profile);       autoWriteBackup(); }
+function saveSupabase()  { saveData(SK.SUPABASE, state.supabaseConf);  autoWriteBackup(); }
+function saveJournal()   { saveData(SK.JOURNAL,  state.journal);       autoWriteBackup(); }
+function saveHabits()    { saveData(SK.HABITS,   state.habits);        autoWriteBackup(); }
+function saveComps()     { saveData(SK.COMPS,    state.completions);   autoWriteBackup(); }
+function saveMissN()     { saveData(SK.NOTES,    state.missNotes);     autoWriteBackup(); }
+function saveReview()    { saveData(SK.REVIEW,   state.weeklyReview);  autoWriteBackup(); }
 
 function seed() {
   state.habits = PRELOADED_HABITS.map((h, i) => ({ ...h, id: 'h' + i }));
@@ -1797,22 +1797,6 @@ function showBackupChoiceDialog() {
   });
 }
 
-// Patch every save function to also trigger auto-write
-const _origSaveHabits  = saveHabits;
-const _origSaveComps   = saveComps;
-const _origSaveMissN   = saveMissN;
-const _origSaveReview  = saveReview;
-const _origSaveJournal = saveJournal;
-const _origSaveProfile = saveProfile;
-const _origSaveSupabase= saveSupabase;
-
-function saveHabits()  { _origSaveHabits();   autoWriteBackup(); }
-function saveComps()   { _origSaveComps();    autoWriteBackup(); }
-function saveMissN()   { _origSaveMissN();    autoWriteBackup(); }
-function saveReview()  { _origSaveReview();   autoWriteBackup(); }
-function saveJournal() { _origSaveJournal();  autoWriteBackup(); }
-function saveProfile() { _origSaveProfile();  autoWriteBackup(); }
-function saveSupabase(){ _origSaveSupabase(); autoWriteBackup(); }
 
 </body>
 </html>
